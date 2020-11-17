@@ -21,6 +21,19 @@ pipeline {
       }
     }
 
+    stage('Sonar') {
+      when {
+        branch 'main'
+      }
+      steps {
+        configFileProvider([configFile(fileId: 'MavenSettings', variable: 'MAVEN_SETTINGS_XML')]) {
+          withSonarQubeEnv(installationName: 'Sonar') {
+            sh 'mvn -s $MAVEN_SETTINGS_XML -f pom.xml sonar:sonar'
+          }
+        }
+      }
+    }
+    
     stage('Deploy Artifact') {
       when {
         expression { params.DEPLOY_ARTIFACT == true }
