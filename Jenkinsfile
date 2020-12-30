@@ -1,6 +1,11 @@
 pipeline {
 
-  parameters { booleanParam(name: 'DEPLOY_ARTIFACT', defaultValue: false, description: 'Deploy Artifact') }
+  options { buildDiscarder(logRotator(daysToKeepStr: '7', numToKeepStr: '25')) }
+
+  parameters {
+    booleanParam(name: 'DEPLOY_ARTIFACT', defaultValue: false, description: 'Deploy Artifact')
+    booleanParam(name: 'RUN_SONAR', defaultValue: false, description: 'Run Sonar Analysis')
+  }
 
   agent {
     docker {
@@ -11,7 +16,10 @@ pipeline {
 
   stages {
 
-    stage('Build') {
+    stage('Build Only') {
+      when {
+        branch 'PR-*'
+      }
       steps {
         configFileProvider([configFile(fileId: 'MavenSettings', variable: 'MAVEN_SETTINGS_XML')]) {
           withMaven(){
@@ -21,22 +29,12 @@ pipeline {
       }
     }
 
-    stage('Sonar') {
+    stage('Build & Deploy') {
       when {
-        branch 'main'
-      }
-      steps {
-        configFileProvider([configFile(fileId: 'MavenSettings', variable: 'MAVEN_SETTINGS_XML')]) {
-          withSonarQubeEnv(installationName: 'Sonar') {
-            sh 'mvn -s $MAVEN_SETTINGS_XML -f pom.xml sonar:sonar'
-          }
+        anyOf {
+          branch 'main'
+          expression { params.DEPLOY_ARTIFACT == true }
         }
-      }
-    }
-    
-    stage('Deploy Artifact') {
-      when {
-        expression { params.DEPLOY_ARTIFACT == true }
       }
       steps {
         configFileProvider([configFile(fileId: 'MavenSettings', variable: 'MAVEN_SETTINGS_XML')]) {
@@ -46,6 +44,20 @@ pipeline {
         }
       }
     }
+
+    stage('Sonar') {
+      when {
+        expression { params.RUN_SONAR == true }
+      }
+      steps {
+        configFileProvider([configFile(fileId: 'MavenSettings', variable: 'MAVEN_SETTINGS_XML')]) {
+          withSonarQubeEnv(installationName: 'Sonar') {
+            sh 'mvn -s $MAVEN_SETTINGS_XML -f pom.xml sonar:sonar'
+          }
+        }
+      }
+    }
+
   }
 
 }
