@@ -7,12 +7,7 @@ pipeline {
     booleanParam(name: 'RUN_SONAR', defaultValue: false, description: 'Run Sonar Analysis')
   }
 
-  agent {
-    docker {
-      image 'maven:3.6-openjdk-11'
-      args '--network=host'
-    }
-  }
+  agent { label 'builder' }
 
   stages {
 
